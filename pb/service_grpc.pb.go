@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_Chat_FullMethodName       = "/ecommerce.ChatService/Chat"
-	ChatService_UploadFile_FullMethodName = "/ecommerce.ChatService/UploadFile"
+	ChatService_Chat_FullMethodName           = "/ecommerce.ChatService/Chat"
+	ChatService_UploadFile_FullMethodName     = "/ecommerce.ChatService/UploadFile"
+	ChatService_GetStockPrices_FullMethodName = "/ecommerce.ChatService/GetStockPrices"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -31,6 +32,8 @@ type ChatServiceClient interface {
 	Chat(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ChatMessage, ChatMessage], error)
 	// client streaming
 	UploadFile(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FileChunk, UploadSummary], error)
+	// server streaming
+	GetStockPrices(ctx context.Context, in *StockRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StockResponse], error)
 }
 
 type chatServiceClient struct {
@@ -67,6 +70,25 @@ func (c *chatServiceClient) UploadFile(ctx context.Context, opts ...grpc.CallOpt
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChatService_UploadFileClient = grpc.ClientStreamingClient[FileChunk, UploadSummary]
 
+func (c *chatServiceClient) GetStockPrices(ctx context.Context, in *StockRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StockResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[2], ChatService_GetStockPrices_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StockRequest, StockResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_GetStockPricesClient = grpc.ServerStreamingClient[StockResponse]
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
@@ -75,6 +97,8 @@ type ChatServiceServer interface {
 	Chat(grpc.BidiStreamingServer[ChatMessage, ChatMessage]) error
 	// client streaming
 	UploadFile(grpc.ClientStreamingServer[FileChunk, UploadSummary]) error
+	// server streaming
+	GetStockPrices(*StockRequest, grpc.ServerStreamingServer[StockResponse]) error
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -90,6 +114,9 @@ func (UnimplementedChatServiceServer) Chat(grpc.BidiStreamingServer[ChatMessage,
 }
 func (UnimplementedChatServiceServer) UploadFile(grpc.ClientStreamingServer[FileChunk, UploadSummary]) error {
 	return status.Errorf(codes.Unimplemented, "method UploadFile not implemented")
+}
+func (UnimplementedChatServiceServer) GetStockPrices(*StockRequest, grpc.ServerStreamingServer[StockResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method GetStockPrices not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -126,6 +153,17 @@ func _ChatService_UploadFile_Handler(srv interface{}, stream grpc.ServerStream) 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChatService_UploadFileServer = grpc.ClientStreamingServer[FileChunk, UploadSummary]
 
+func _ChatService_GetStockPrices_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StockRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ChatServiceServer).GetStockPrices(m, &grpc.GenericServerStream[StockRequest, StockResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_GetStockPricesServer = grpc.ServerStreamingServer[StockResponse]
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -144,6 +182,11 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "UploadFile",
 			Handler:       _ChatService_UploadFile_Handler,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "GetStockPrices",
+			Handler:       _ChatService_GetStockPrices_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "service.proto",

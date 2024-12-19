@@ -13,8 +13,10 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"math/rand"
 	"net"
 	"os"
+	"time"
 
 	"github.com/yaninyzwitty/go-grpc-streaming/pb"
 	"google.golang.org/grpc"
@@ -24,6 +26,7 @@ type server struct {
 	pb.UnimplementedChatServiceServer
 }
 
+// bi-directional
 func (s *server) Chat(stream pb.ChatService_ChatServer) error {
 	for {
 		msg, err := stream.Recv()
@@ -50,6 +53,8 @@ func (s *server) Chat(stream pb.ChatService_ChatServer) error {
 	}
 }
 
+// client streaming
+
 func (s *server) UploadFile(stream pb.ChatService_UploadFileServer) error {
 	totalChunks := 0
 	fileName := ""
@@ -73,6 +78,36 @@ func (s *server) UploadFile(stream pb.ChatService_UploadFileServer) error {
 		totalChunks++
 		slog.Info("Received chunk", "chunk", "name", fmt.Sprintf("%d", chunk.ChunkNumber), fileName)
 	}
+}
+
+// Simulate a server streaming RPC for real-time stock prices.
+
+func (s *server) GetStockPrices(req *pb.StockRequest, stream pb.ChatService_GetStockPricesServer) error {
+
+	symbol := req.Symbol
+	slog.Info("Received request for stock prices", "symbol", symbol)
+
+	// Simulate sending a stream of stock prices
+
+	for i := 0; i < 10; i++ {
+		price := rand.Float32() * 600
+		timestamp := time.Now().Unix()
+
+		resp := &pb.StockResponse{
+			Symbol:    symbol,
+			Price:     price,
+			Timestamp: timestamp,
+		}
+
+		slog.Info("Sending stock price", "symbol", symbol, "price", price, "timestamp", timestamp)
+		if err := stream.Send(resp); err != nil {
+			slog.Error("Error sending stock price", "error", err)
+			return err
+		}
+		time.Sleep(time.Second)
+
+	}
+	return nil
 }
 
 func main() {
