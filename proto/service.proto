@@ -5,10 +5,27 @@ package ecommerce;
 
 
 service ChatService {
+  // BI-DIRECTIONAL streaming
   rpc Chat (stream ChatMessage) returns (stream ChatMessage);
+
+  // client streaming
+    rpc UploadFile (stream FileChunk) returns (UploadSummary);
+
 }
 
 message ChatMessage {
   string user = 1;
   string message = 2;
+}
+
+
+message FileChunk {
+  string name = 1;       
+  bytes content = 2;    
+  int32 chunk_number = 3; 
+}
+
+message UploadSummary {
+  string message = 1;
+  int32 total_chunks = 2;
 }

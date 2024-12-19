@@ -19,14 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_Chat_FullMethodName = "/ecommerce.ChatService/Chat"
+	ChatService_Chat_FullMethodName       = "/ecommerce.ChatService/Chat"
+	ChatService_UploadFile_FullMethodName = "/ecommerce.ChatService/UploadFile"
 )
 
 // ChatServiceClient is the client API for ChatService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChatServiceClient interface {
+	// BI-DIRECTIONAL streaming
 	Chat(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ChatMessage, ChatMessage], error)
+	// client streaming
+	UploadFile(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FileChunk, UploadSummary], error)
 }
 
 type chatServiceClient struct {
@@ -50,11 +54,27 @@ func (c *chatServiceClient) Chat(ctx context.Context, opts ...grpc.CallOption) (
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChatService_ChatClient = grpc.BidiStreamingClient[ChatMessage, ChatMessage]
 
+func (c *chatServiceClient) UploadFile(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FileChunk, UploadSummary], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[1], ChatService_UploadFile_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FileChunk, UploadSummary]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_UploadFileClient = grpc.ClientStreamingClient[FileChunk, UploadSummary]
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
 type ChatServiceServer interface {
+	// BI-DIRECTIONAL streaming
 	Chat(grpc.BidiStreamingServer[ChatMessage, ChatMessage]) error
+	// client streaming
+	UploadFile(grpc.ClientStreamingServer[FileChunk, UploadSummary]) error
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -67,6 +87,9 @@ type UnimplementedChatServiceServer struct{}
 
 func (UnimplementedChatServiceServer) Chat(grpc.BidiStreamingServer[ChatMessage, ChatMessage]) error {
 	return status.Errorf(codes.Unimplemented, "method Chat not implemented")
+}
+func (UnimplementedChatServiceServer) UploadFile(grpc.ClientStreamingServer[FileChunk, UploadSummary]) error {
+	return status.Errorf(codes.Unimplemented, "method UploadFile not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -96,6 +119,13 @@ func _ChatService_Chat_Handler(srv interface{}, stream grpc.ServerStream) error 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChatService_ChatServer = grpc.BidiStreamingServer[ChatMessage, ChatMessage]
 
+func _ChatService_UploadFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ChatServiceServer).UploadFile(&grpc.GenericServerStream[FileChunk, UploadSummary]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_UploadFileServer = grpc.ClientStreamingServer[FileChunk, UploadSummary]
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -108,6 +138,11 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "Chat",
 			Handler:       _ChatService_Chat_Handler,
 			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "UploadFile",
+			Handler:       _ChatService_UploadFile_Handler,
 			ClientStreams: true,
 		},
 	},

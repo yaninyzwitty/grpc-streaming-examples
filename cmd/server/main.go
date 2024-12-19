@@ -50,6 +50,31 @@ func (s *server) Chat(stream pb.ChatService_ChatServer) error {
 	}
 }
 
+func (s *server) UploadFile(stream pb.ChatService_UploadFileServer) error {
+	totalChunks := 0
+	fileName := ""
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&pb.UploadSummary{
+				Message:     fmt.Sprintf("File %s uploaded successfully with %d chunks", fileName, totalChunks),
+				TotalChunks: int32(totalChunks),
+			})
+
+		}
+		if err != nil {
+			slog.Error("Error receiving chunk", "error", err)
+			return err
+		}
+
+		// Process the chunk
+
+		fileName = chunk.Name
+		totalChunks++
+		slog.Info("Received chunk", "chunk", "name", fmt.Sprintf("%d", chunk.ChunkNumber), fileName)
+	}
+}
+
 func main() {
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
