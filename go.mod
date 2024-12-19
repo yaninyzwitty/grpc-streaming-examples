@@ -1,6 +1,6 @@
 module github.com/yaninyzwitty/go-grpc-streaming
 
-go 1.22.1
+go 1.23
 
 require (
 	google.golang.org/grpc v1.69.2
